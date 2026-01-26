@@ -1,0 +1,72 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AssetModel = void 0;
+const dbConfig_1 = __importDefault(require("../db/dbConfig"));
+const dbMapper_1 = require("../db/dbMapper");
+const AssetMapper = new dbMapper_1.DbMapper({
+    id: "id",
+    version: "version",
+    client_id: "clientId",
+    message_id: "messageId",
+    guid: "guid",
+    code: "code",
+    description: "description",
+    is_msi: "isMsi"
+});
+class AssetModel {
+    async Initialise() {
+        await dbConfig_1.default.query('DROP TABLE IF EXISTS asset_task');
+        await dbConfig_1.default.query("DROP TABLE IF EXISTS asset");
+        await dbConfig_1.default.query("DROP INDEX IF EXISTS index_asset_code");
+        await dbConfig_1.default.query("DROP INDEX IF EXISTS index_asset_id_client_id");
+        await dbConfig_1.default.query("CREATE TABLE asset(ID SERIAL PRIMARY KEY, VERSION INTEGER NOT NULL, CLIENT_ID INTEGER NOT NULL, MESSAGE_ID TEXT, GUID TEXT NOT NULL, CODE TEXT NOT NULL, DESCRIPTION TEXT NOT NULL, IS_MSI BOOLEAN NOT NULL)");
+        await dbConfig_1.default.query("CREATE UNIQUE INDEX index_asset_code ON asset(code)");
+        await dbConfig_1.default.query("CREATE UNIQUE INDEX index_asset_id_client_id ON asset(id, client_id)");
+    }
+    ;
+    async GetAssets() {
+        const result = await dbConfig_1.default.query("SELECT * FROM asset");
+        return result.rows;
+    }
+    async GetAssetById(id) {
+        const result = await dbConfig_1.default.query("SELECT * FROM asset WHERE id = $1", [id]);
+        let asset = null;
+        if (result.rows != null && (result.rows.length > 0))
+            asset = AssetMapper.map(result.rows[0]);
+        return asset;
+    }
+    async CreateAsset(asset) {
+        const insertResult = await dbConfig_1.default.query("INSERT INTO asset (client_id, guid, version, message_id, code, description, is_msi) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *", [asset['clientId'], asset['guid'], 0, asset['messageId'], asset['code'], asset['description'], asset['isMsi']]);
+        let newAsset = null;
+        if (insertResult.rows != null && (insertResult.rows.length > 0))
+            newAsset = AssetMapper.map(insertResult.rows[0]);
+        return newAsset;
+    }
+    async UpdateAsset(id, asset) {
+        let version = asset['version'];
+        version += 1;
+        const updateResult = await dbConfig_1.default.query("UPDATE asset SET code = $1, description = $2, is_msi = $3, message_id = $4, version = $5 WHERE id = $6 RETURNING *", [asset['code'], asset['description'], asset['isMsi'], asset['messageId'], version, id]);
+        let updatedAsset = null;
+        if (updateResult.rows != null && (updateResult.rows.length > 0))
+            updatedAsset = AssetMapper.map(updateResult.rows[0]);
+        return updatedAsset;
+    }
+    async GetAssetsCount() {
+        const result = await dbConfig_1.default.query("SELECT COUNT(id) FROM asset");
+        return parseInt(result.rows[0].count, 10);
+    }
+    ;
+    async DeleteAllAssets() {
+        return await dbConfig_1.default.query("DELETE FROM asset");
+    }
+    ;
+    async DeleteAsset(id) {
+        return await dbConfig_1.default.query("DELETE FROM asset WHERE id = $1", [id]);
+    }
+    ;
+}
+exports.AssetModel = AssetModel;
+//# sourceMappingURL=assetModel.js.map
