@@ -1,0 +1,84 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.MeterModel = void 0;
+const dbConfig_1 = __importDefault(require("../db/dbConfig"));
+const dbMapper_1 = require("../db/dbMapper");
+const MeterMapper = new dbMapper_1.DbMapper({
+    id: "id",
+    version: "version",
+    client_id: "clientId",
+    message_id: "messageId",
+    guid: "guid",
+    code: "code",
+    description: "description",
+    is_paused: "isPaused",
+    adr: "adr"
+});
+class MeterModel {
+    async Initialise() {
+        await dbConfig_1.default.query('DROP TABLE IF EXISTS meter_reading');
+        await dbConfig_1.default.query("DROP TABLE IF EXISTS meter");
+        await dbConfig_1.default.query("CREATE TABLE IF NOT EXISTS meter(id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, client_id INTEGER NOT NULL, message_id TEXT UNIQUE, guid TEXT NOT NULL, code TEXT NOT NULL UNIQUE, description TEXT NOT NULL, adr REAL, is_paused BOOLEAN NOT NULL)");
+        await dbConfig_1.default.query("CREATE UNIQUE INDEX IF NOT EXISTS index_meter_message_id ON meter(message_id)");
+    }
+    ;
+    async GetMeters() {
+        const result = await dbConfig_1.default.query("SELECT * FROM meter");
+        return result.rows;
+    }
+    async GetMeterById(id) {
+        const result = await dbConfig_1.default.query("SELECT * FROM meter WHERE id = ?", [id]);
+        let meter = null;
+        if (result.rows != null && (result.rows.length > 0))
+            meter = MeterMapper.map(result.rows[0]);
+        return meter;
+    }
+    async GetMeterAdr(id) {
+        const result = await dbConfig_1.default.query(`
+            SELECT COALESCE(AVG(COALESCE(daily_rate, 0)), 0) AS average_daily_rate
+            FROM (
+                SELECT
+                    (reading - LAG(reading) OVER (ORDER BY reading_on)) /
+                    NULLIF((julianday(reading_on) - julianday(LAG(reading_on) OVER (ORDER BY reading_on))), 0) AS daily_rate
+                FROM meter_reading
+                WHERE meter_id = ?
+                ORDER BY id
+            ) AS daily_rates
+        `, [id]);
+        return parseFloat(result.rows[0]?.average_daily_rate || 0);
+    }
+    async CreateMeter(meter) {
+        const insertResult = await dbConfig_1.default.query("INSERT INTO meter (client_id, guid, version, message_id, code, description, is_paused, adr) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *", [meter['clientId'], meter['guid'], 0, meter['messageId'], meter['code'], meter['description'], false, 0]);
+        let newMeter = null;
+        if (insertResult.rows != null && (insertResult.rows.length > 0))
+            newMeter = MeterMapper.map(insertResult.rows[0]);
+        return newMeter;
+    }
+    async UpdateMeter(id, meter) {
+        let version = meter['version'];
+        version += 1;
+        const updateResult = await dbConfig_1.default.query("UPDATE meter SET code = ?, description = ?, is_paused = ?, message_id = ?, version = ? WHERE id = ? RETURNING *", [meter['code'], meter['description'], meter['isPaused'], meter['messageId'], version, id]);
+        let updatedMeter = null;
+        if (updateResult.rows != null && (updateResult.rows.length > 0))
+            updatedMeter = MeterMapper.map(updateResult.rows[0]);
+        return updatedMeter;
+    }
+    async GetMetersCount() {
+        const result = await dbConfig_1.default.query("SELECT COUNT(id) as count FROM meter");
+        return parseInt(result.rows[0].count, 10);
+    }
+    ;
+    async DeleteAllMeters() {
+        return await dbConfig_1.default.query("DELETE FROM meter");
+    }
+    ;
+    async DeleteMeter(id) {
+        return await dbConfig_1.default.query("DELETE FROM meter WHERE id = ?", [id]);
+    }
+    ;
+}
+exports.MeterModel = MeterModel;
+//# sourceMappingURL=meterModel.js.map
