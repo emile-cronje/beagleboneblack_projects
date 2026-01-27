@@ -1,21 +1,22 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DbMapper = void 0;
-class DbMapper {
-    constructor(columnToPropertyMap) {
+var DbMapper = /** @class */ (function () {
+    function DbMapper(columnToPropertyMap) {
         this.columnToPropertyMap = columnToPropertyMap;
     }
-    map(dbObject) {
-        const result = {};
-        for (const column in this.columnToPropertyMap) {
-            const property = this.columnToPropertyMap[column];
+    DbMapper.prototype.map = function (dbObject) {
+        var result = {};
+        for (var column in this.columnToPropertyMap) {
+            var property = this.columnToPropertyMap[column];
             result[property] = dbObject[column];
         }
         return result;
-    }
-    mapList(dbObjects) {
-        return dbObjects.map((dbObject) => this.map(dbObject));
-    }
-}
+    };
+    DbMapper.prototype.mapList = function (dbObjects) {
+        var _this = this;
+        return dbObjects.map(function (dbObject) { return _this.map(dbObject); });
+    };
+    return DbMapper;
+}());
 exports.DbMapper = DbMapper;
-//# sourceMappingURL=dbMapper.js.map

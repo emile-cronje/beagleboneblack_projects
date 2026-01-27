@@ -73,18 +73,18 @@ class MeterReadingController {
 
         try {
             const id = parseInt(req.params.id);
+            
+            // Check if the meter reading exists before attempting to update
+            const existingMeterReading = await this.meterReadingModel.GetMeterReadingById(id);
+            
+            if (!existingMeterReading) {
+                return res.status(404).json({ message: "Meter Reading not found" });
+            }
+            
+            // Meter reading exists, proceed with update
             const updatedMeterReading = await this.meterReadingModel.UpdateMeterReading(id, meterReadingData);
 
             if (updatedMeterReading == null) {
-                const meterReadingData = {
-                    mqttSessionId: mqttSessionId,                                                            
-                    messageId: req.body.messageId,
-                    clientId: req.body.clientId,
-                    entityType: 'MeterReading',
-                    operation: 'Update'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(meterReadingData))
                 return res.status(404).json({ message: "Meter Reading not found" });
             }
             else {
@@ -134,16 +134,7 @@ class MeterReadingController {
             const savedMeterReading = await this.meterReadingModel.GetMeterReadingById(id);
 
             if (savedMeterReading == null) {
-                const meterReadingData = {
-                    mqttSessionId: mqttSessionId,                                                            
-                    messageId: req.body.messageId,
-                    clientId: 0,
-                    entityType: 'MeterReading',
-                    operation: 'Delete'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(meterReadingData));
-                res.json("Item not found");
+                return res.status(404).json({ message: "Meter Reading not found" });
             } else {
                 await this.meterReadingModel.DeleteMeterReading(id);
 

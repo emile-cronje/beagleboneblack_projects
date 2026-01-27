@@ -75,18 +75,18 @@ class ToDoController {
 
         try {
             const id = parseInt(req.params.id);
+            
+            // Check if the todo exists before attempting to update
+            const existingTodo = await this.todoModel.GetTodoById(id);
+            
+            if (!existingTodo) {
+                return res.status(404).json({ message: "Todo not found" });
+            }
+            
+            // Todo exists, proceed with update
             const updatedTodo = await this.todoModel.UpdateTodo(id, itemData);
 
             if (updatedTodo == null) {
-                const toDoData = {
-                    mqttSessionId: mqttSessionId,
-                    messageId: req.body.messageId,
-                    clientId: req.body.clientId,
-                    entityType: 'ToDoItem',
-                    operation: 'Update'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(toDoData))
                 return res.status(404).json({ message: "Todo not found" });
             }
             else {
@@ -136,16 +136,7 @@ class ToDoController {
             const savedTodo = await this.todoModel.GetTodoById(id);
 
             if (savedTodo == null) {
-                const toDoData = {
-                    mqttSessionId: mqttSessionId,
-                    messageId: req.body.messageId,
-                    clientId: 0,
-                    entityType: 'ToDoItem',
-                    operation: 'Delete'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(toDoData));
-                res.json("Item not found");
+                return res.status(404).json({ message: "Todo not found" });
             } else {
                 await this.todoModel.DeleteTodo(id);
 

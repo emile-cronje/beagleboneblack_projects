@@ -85,18 +85,18 @@ class AssetController {
 
         try {
             const id = parseInt(req.params.id);
+            
+            // Check if the asset exists before attempting to update
+            const existingAsset = await this.assetModel.GetAssetById(id);
+            
+            if (!existingAsset) {
+                return res.status(404).json({ message: "Asset not found" });
+            }
+            
+            // Asset exists, proceed with update
             const updatedAsset = await this.assetModel.UpdateAsset(id, assetData);
 
             if (updatedAsset == null) {
-                const assetData = {
-                    mqttSessionId: mqttSessionId,                    
-                    messageId: req.body.messageId,
-                    clientId: req.body.clientId,
-                    entityType: 'Asset',
-                    operation: 'Update'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(assetData))
                 return res.status(404).json({ message: "Asset not found" });
             }
             else {
@@ -146,16 +146,7 @@ class AssetController {
             const savedAsset = await this.assetModel.GetAssetById(id);
 
             if (savedAsset == null) {
-                const assetData = {
-                    mqttSessionId: mqttSessionId,                    
-                    messageId: req.body.messageId,
-                    clientId: 0,
-                    entityType: 'Asset',
-                    operation: 'Delete'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(assetData));
-                res.json("Item not found");
+                return res.status(404).json({ message: "Asset not found" });
             } else {
                 await DeleteAssetTasksForAsset(id, req, res)                
                 await this.assetModel.DeleteAsset(id);

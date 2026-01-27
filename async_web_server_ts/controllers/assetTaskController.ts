@@ -73,21 +73,18 @@ class AssetTaskController {
 
         try {
             const id = parseInt(req.params.id);
-            const updatedAssetTask = await this.assetTaskModel.UpdateAssetTask(id, assetTaskData);
-
-            if (updatedAssetTask == null) {
-                const assetTaskData = {
-                    mqttSessionId: mqttSessionId,                                        
-                    messageId: req.body.messageId,
-                    clientId: req.body.clientId,
-                    entityType: 'AssetTask',
-                    operation: 'Update'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(assetTaskData))
+            
+            // Check if the task exists before attempting to update
+            const existingTask = await this.assetTaskModel.GetAssetTaskById(id);
+            
+            if (!existingTask) {
                 return res.status(404).json({ message: "Asset Task not found" });
             }
-            else {
+            
+            // Task exists, proceed with update
+            const updatedAssetTask = await this.assetTaskModel.UpdateAssetTask(id, assetTaskData);
+
+            if (updatedAssetTask != null) {
                 const assetTaskData = {
                     mqttSessionId: mqttSessionId,                                        
                     messageId: updatedAssetTask.messageId,
@@ -134,16 +131,7 @@ class AssetTaskController {
             const savedAssetTask = await this.assetTaskModel.GetAssetTaskById(id);
 
             if (savedAssetTask == null) {
-                const assetTaskData = {
-                    mqttSessionId: mqttSessionId,                                        
-                    messageId: req.body.messageId,
-                    clientId: 0,
-                    entityType: 'AssetTask',
-                    operation: 'Delete'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(assetTaskData));
-                res.json("Item not found");
+                return res.status(404).json({ message: "Asset Task not found" });
             } else {
                 await this.assetTaskModel.DeleteAssetTask(id);
 

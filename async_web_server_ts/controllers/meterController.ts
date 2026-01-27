@@ -100,18 +100,18 @@ class MeterController {
 
         try {
             const id = parseInt(req.params.id);
+            
+            // Check if the meter exists before attempting to update
+            const existingMeter = await this.meterModel.GetMeterById(id);
+            
+            if (!existingMeter) {
+                return res.status(404).json({ message: "Meter not found" });
+            }
+            
+            // Meter exists, proceed with update
             const updatedMeter = await this.meterModel.UpdateMeter(id, meterData);
 
             if (updatedMeter == null) {
-                const meterData = {
-                    mqttSessionId: mqttSessionId,                                        
-                    messageId: req.body.messageId,
-                    clientId: req.body.clientId,
-                    entityType: 'Meter',
-                    operation: 'Update'
-                };
-
-                this.mqttClient?.publish('/entities', JSON.stringify(meterData))
                 return res.status(404).json({ message: "Meter not found" });
             }
             else {
@@ -161,16 +161,7 @@ class MeterController {
             const savedMeter = await this.meterModel.GetMeterById(id);
 
             if (savedMeter == null) {
-                const meterData = {
-                    mqttSessionId: mqttSessionId,                                        
-                    messageId: req.body.messageId,
-                    clientId: 0,
-                    entityType: "Meter",
-                    operation: "Delete"
-                };
-
-                this.mqttClient?.publish("/entities", JSON.stringify(meterData));
-                res.json("Item not found");
+                return res.status(404).json({ message: "Meter not found" });
             } else {
                 await DeleteMeterReadingsForMeter(id, req, res)                
                 await this.meterModel.DeleteMeter(id);
