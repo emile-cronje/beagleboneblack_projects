@@ -1,19 +1,33 @@
-import Database from "better-sqlite3";
+import sqlite3 from "sqlite3";
+import { open, Database } from "sqlite";
 import path from "path";
 
-const db = new Database(path.join(__dirname, "app.db"));
+let db: Database<sqlite3.Database, sqlite3.Statement> | null = null;
 
-// Enable foreign keys
-db.pragma("foreign_keys = ON");
-db.pragma("journal_mode = WAL");
+// Initialize database connection
+async function initDb() {
+  if (db) return db;
+  
+  db = await open({
+    filename: path.join(__dirname, "app.db"),
+    driver: sqlite3.Database
+  });
+  
+  // Enable foreign keys and WAL mode
+  await db.exec("PRAGMA foreign_keys = ON");
+  await db.exec("PRAGMA journal_mode = WAL");
+  
+  return db;
+}
 
 class DbWrapper {
-  query(sql: string, params?: any[]): any {
+  async query(sql: string, params?: any[]): Promise<any> {
     try {
+      const database = await initDb();
+      
       // Trim whitespace from SQL
       sql = sql.trim();
       
-      const stmt = db.prepare(sql);
       if (params && params.length > 0) {
         // Convert boolean values to 0/1 for SQLite
         const convertedParams = params.map(param => {
@@ -30,11 +44,10 @@ class DbWrapper {
           convertedSql = convertedSql.replace(`$${paramIndex}`, "?");
           paramIndex++;
         }
-        const convertedStmt = db.prepare(convertedSql);
         
         // Handle INSERT/UPDATE/DELETE with RETURNING clause
         if (sql.toUpperCase().includes("RETURNING")) {
-          const result = convertedStmt.run(...convertedParams);
+          const result = await database.run(convertedSql, ...convertedParams);
           // SQLite doesn't support RETURNING, so we need to fetch the data
           const sqlUpper = sql.toUpperCase();
           const selectSql = sql.substring(0, sql.toUpperCase().indexOf("RETURNING")).trim();
@@ -42,11 +55,10 @@ class DbWrapper {
           
           let fetchedRow = null;
           
-          // For INSERT queries, use lastInsertRowid
+          // For INSERT queries, use lastID
           if (sqlUpper.includes("INSERT")) {
-            if (result.lastInsertRowid) {
-              const fetchStmt = db.prepare(`SELECT * FROM ${tableName} WHERE id = ?`);
-              fetchedRow = fetchStmt.get(result.lastInsertRowid);
+            if (result.lastID) {
+              fetchedRow = await database.get(`SELECT * FROM ${tableName} WHERE id = ?`, result.lastID);
             }
           }
           // For UPDATE queries, extract the ID from WHERE clause
@@ -55,8 +67,7 @@ class DbWrapper {
             if (whereMatch && convertedParams.length > 0) {
               // The ID is typically the last parameter in an UPDATE WHERE id = ? query
               const idParam = convertedParams[convertedParams.length - 1];
-              const fetchStmt = db.prepare(`SELECT * FROM ${tableName} WHERE id = ?`);
-              fetchedRow = fetchStmt.get(idParam);
+              fetchedRow = await database.get(`SELECT * FROM ${tableName} WHERE id = ?`, idParam);
             }
           }
           
@@ -66,24 +77,24 @@ class DbWrapper {
         
         // Handle SELECT queries
         if (sql.toUpperCase().startsWith("SELECT")) {
-          const rows = convertedStmt.all(...convertedParams);
+          const rows = await database.all(convertedSql, ...convertedParams);
           return { rows };
         }
         
         // Handle INSERT/UPDATE/DELETE
-        convertedStmt.run(...convertedParams);
+        await database.run(convertedSql, ...convertedParams);
         return { rows: [] };
       } else {
         // No parameters
         if (sql.toUpperCase().includes("RETURNING")) {
-          stmt.run();
+          await database.run(sql);
           return { rows: [] };
         }
         if (sql.toUpperCase().startsWith("SELECT")) {
-          const rows = stmt.all();
+          const rows = await database.all(sql);
           return { rows };
         }
-        stmt.run();
+        await database.run(sql);
         return { rows: [] };
       }
     } catch (error) {
