@@ -5,10 +5,14 @@ const db = new Database(path.join(__dirname, "app.db"));
 
 // Enable foreign keys
 db.pragma("foreign_keys = ON");
+db.pragma("journal_mode = WAL");
 
 class DbWrapper {
   query(sql: string, params?: any[]): any {
     try {
+      // Trim whitespace from SQL
+      sql = sql.trim();
+      
       const stmt = db.prepare(sql);
       if (params && params.length > 0) {
         // Convert boolean values to 0/1 for SQLite

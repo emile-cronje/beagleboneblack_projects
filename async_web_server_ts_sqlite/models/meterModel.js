@@ -38,17 +38,22 @@ class MeterModel {
     }
     async GetMeterAdr(id) {
         const result = await dbConfig_1.default.query(`
-            SELECT COALESCE(AVG(COALESCE(daily_rate, 0)), 0) AS average_daily_rate
-            FROM (
-                SELECT
-                    (reading - LAG(reading) OVER (ORDER BY reading_on)) /
-                    NULLIF((julianday(reading_on) - julianday(LAG(reading_on) OVER (ORDER BY reading_on))), 0) AS daily_rate
-                FROM meter_reading
-                WHERE meter_id = ?
-                ORDER BY id
-            ) AS daily_rates
+SELECT AVG(COALESCE(daily_rate, 0)) AS average_daily_rate
+FROM (
+    SELECT
+        (reading - LAG(reading) OVER (ORDER BY reading_on)) * 1.0
+        /
+        NULLIF(
+            julianday(date(reading_on)) -
+            julianday(date(LAG(reading_on) OVER (ORDER BY reading_on))),
+            0
+        ) AS daily_rate
+    FROM meter_reading
+    WHERE meter_id = ?
+) AS daily_rates;
         `, [id]);
-        return parseFloat(result.rows[0]?.average_daily_rate || 0);
+        let adr = result.rows[0]?.average_daily_rate ?? 0;
+        return parseFloat(adr);
     }
     async CreateMeter(meter) {
         const insertResult = await dbConfig_1.default.query("INSERT INTO meter (client_id, guid, version, message_id, code, description, is_paused, adr) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *", [meter['clientId'], meter['guid'], 0, meter['messageId'], meter['code'], meter['description'], false, 0]);

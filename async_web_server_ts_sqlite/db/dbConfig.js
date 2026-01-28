@@ -8,9 +8,12 @@ const path_1 = __importDefault(require("path"));
 const db = new better_sqlite3_1.default(path_1.default.join(__dirname, "app.db"));
 // Enable foreign keys
 db.pragma("foreign_keys = ON");
+db.pragma("journal_mode = WAL");
 class DbWrapper {
     query(sql, params) {
         try {
+            // Trim whitespace from SQL
+            sql = sql.trim();
             const stmt = db.prepare(sql);
             if (params && params.length > 0) {
                 // Convert boolean values to 0/1 for SQLite
