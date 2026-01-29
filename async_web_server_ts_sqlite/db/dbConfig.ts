@@ -21,6 +21,21 @@ async function initDb() {
 }
 
 class DbWrapper {
+  async beginTransaction(): Promise<void> {
+    const database = await initDb();
+    await database.exec("BEGIN TRANSACTION");
+  }
+
+  async commit(): Promise<void> {
+    const database = await initDb();
+    await database.exec("COMMIT");
+  }
+
+  async rollback(): Promise<void> {
+    const database = await initDb();
+    await database.exec("ROLLBACK");
+  }
+
   async query(sql: string, params?: any[]): Promise<any> {
     try {
       const database = await initDb();

@@ -42,13 +42,30 @@ class AssetTaskModel {
         return newAssetTask;
     }
     async UpdateAssetTask(id, assetTask) {
-        let version = assetTask['version'];
-        version += 1;
-        const updateResult = await dbConfig_1.default.query("UPDATE asset_task SET code = ?, description = ?, is_rfs = ?, message_id = ?, version = ? WHERE id = ? RETURNING *", [assetTask['code'], assetTask['description'], assetTask['isRfs'], assetTask['messageId'], version, id]);
-        let updatedAssetTask = null;
-        if (updateResult.rows != null && (updateResult.rows.length > 0))
-            updatedAssetTask = AssetTaskMapper.map(updateResult.rows[0]);
-        return updatedAssetTask;
+        try {
+            await dbConfig_1.default.beginTransaction();
+            // Read current version
+            const versionResult = await dbConfig_1.default.query("SELECT version FROM asset_task WHERE id = ?", [id]);
+            if (!versionResult.rows || versionResult.rows.length === 0) {
+                await dbConfig_1.default.rollback();
+                return null;
+            }
+            const currentVersion = versionResult.rows[0].version;
+            const newVersion = currentVersion + 1;
+            // Update record without RETURNING
+            await dbConfig_1.default.query("UPDATE asset_task SET code = ?, description = ?, is_rfs = ?, message_id = ?, version = ? WHERE id = ?", [assetTask['code'], assetTask['description'], assetTask['isRfs'], assetTask['messageId'], newVersion, id]);
+            // Select the updated record
+            const selectResult = await dbConfig_1.default.query("SELECT * FROM asset_task WHERE id = ?", [id]);
+            await dbConfig_1.default.commit();
+            let updatedAssetTask = null;
+            if (selectResult.rows != null && selectResult.rows.length > 0)
+                updatedAssetTask = AssetTaskMapper.map(selectResult.rows[0]);
+            return updatedAssetTask;
+        }
+        catch (error) {
+            await dbConfig_1.default.rollback();
+            throw error;
+        }
     }
     async GetAssetTasksCount() {
         const result = await dbConfig_1.default.query("SELECT COUNT(id) as count FROM asset_task");
