@@ -27,7 +27,9 @@ export class MeterReadingModel {
         await pool.query('CREATE TABLE IF NOT EXISTS meter_reading(id INTEGER PRIMARY KEY AUTOINCREMENT, version INTEGER NOT NULL, client_id INTEGER NOT NULL, message_id TEXT UNIQUE, meter_id INTEGER NOT NULL, reading REAL, reading_on TIMESTAMP, CONSTRAINT fk_meter FOREIGN KEY(meter_id) REFERENCES meter(id))')
 
         await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS index_meter_reading_id_client_id ON meter_reading(id, client_id)')
-        await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS index_meter_reading_message_id ON meter_reading(message_id)");                                
+        await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS index_meter_reading_message_id ON meter_reading(message_id)");
+        await pool.query('CREATE INDEX IF NOT EXISTS index_meter_reading_meter_id ON meter_reading(meter_id)');
+        await pool.query('CREATE INDEX IF NOT EXISTS index_meter_reading_meter_id_reading_on ON meter_reading(meter_id, reading_on)');                                
     };
 
     async GetMeterReadings(): Promise<MeterReading[]> {
